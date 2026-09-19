@@ -1,7 +1,7 @@
 use rust_decimal::Decimal;
 use std::str::FromStr;
 use thiserror::Error;
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TypeOp {
     Deposit,
     Withdrawal,
