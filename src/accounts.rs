@@ -62,6 +62,7 @@ impl Accounts {
         amount: Decimal,
         tx: u32,
     ) -> Result<OpOutcome, TxProError> {
+        let amount = amount.trunc_with_scale(4);
         match self.data.get_mut(&client) {
             None => {
                 return Ok(OpOutcome::Rejected(RejectReason::UnknownClient));
@@ -779,5 +780,13 @@ mod tests {
         let mut acc = accounts();
         acc.deposit(1, dec!(1.23456789), 100).unwrap();
         assert_client(&acc, 1, dec!(1.2345), dec!(0), dec!(1.2345), false);
+    }
+
+    #[test]
+    fn withdrawal_truncates_amount_to_four_decimal_places() {
+        let mut acc = accounts();
+        acc.deposit(1, dec!(1.2345), 100).unwrap();
+        acc.withdrawal(1, dec!(0.23456789), 101).unwrap();
+        assert_client(&acc, 1, dec!(1.0000), dec!(0), dec!(1.0000), false);
     }
 }
