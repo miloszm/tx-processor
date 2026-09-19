@@ -1,8 +1,8 @@
 mod accounts;
+mod dispatcher;
 mod driver;
 mod error;
 mod parser;
-mod dispatcher;
 mod types;
 
 use std::env;
@@ -24,5 +24,9 @@ fn main() {
         process::exit(1);
     }
 
-    let _result = driver::TxProcessor::run(&file_path);
+    let result = driver::TxProcessor::run(&file_path);
+    if let Err(e) = result {
+        eprintln!("Error: {e}");
+        process::exit(1);
+    }
 }

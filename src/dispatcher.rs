@@ -20,7 +20,6 @@ pub fn dispatch(r: &InputRecord, accounts: &mut Accounts) -> Result<OpOutcome, T
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -63,7 +62,10 @@ mod tests {
         let outcome = dispatch(&r, &mut acc).unwrap();
 
         assert_eq!(outcome, OpOutcome::Applied);
-        assert_eq!(acc.txs.get(&101).unwrap().type_op, TxRecordTypeOp::Withdrawal);
+        assert_eq!(
+            acc.txs.get(&101).unwrap().type_op,
+            TxRecordTypeOp::Withdrawal
+        );
     }
 
     #[test]

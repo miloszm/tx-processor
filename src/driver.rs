@@ -3,11 +3,11 @@ use std::io::{Read, Write};
 use std::path::Path;
 
 use crate::accounts::Accounts;
+use crate::dispatcher::dispatch;
 use crate::error::TxProError;
 use crate::parser::{Columns, InputRecordParser};
-use crate::dispatcher::dispatch;
-use csv::{ReaderBuilder, StringRecord};
 use crate::types::OpOutcome;
+use csv::{ReaderBuilder, StringRecord};
 
 pub struct TxProcessor;
 
@@ -20,10 +20,7 @@ impl TxProcessor {
         Self::process(file, &mut handle)
     }
 
-    pub fn process<R: Read, W: Write>(
-        input: R,
-        out: &mut W,
-    ) -> Result<(), TxProError> {
+    pub fn process<R: Read, W: Write>(input: R, out: &mut W) -> Result<(), TxProError> {
         let mut reader = ReaderBuilder::new()
             .has_headers(true)
             .trim(csv::Trim::All) // trims whitespace around fields
