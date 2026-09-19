@@ -1,12 +1,14 @@
+use std::collections::BTreeMap;
+use std::collections::btree_map::Entry::{Occupied, Vacant};
+use std::io::Write;
+
+use rust_decimal::Decimal;
+
 use crate::error::TxProError;
 use crate::types::{
     ClientData, OUTPUT_HEADER, OpOutcome, OutputRecord, RejectReason, TransactionRecord,
     TxRecordTypeOp, TxState,
 };
-use rust_decimal::Decimal;
-use std::collections::BTreeMap;
-use std::collections::btree_map::Entry::{Occupied, Vacant};
-use std::io::Write;
 
 pub struct Accounts {
     pub(crate) data: BTreeMap<u16, ClientData>,

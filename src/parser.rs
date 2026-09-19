@@ -1,8 +1,9 @@
+use csv::StringRecord;
+use rust_decimal::Decimal;
+
 use crate::error;
 use crate::types::InputRecord;
-use csv::StringRecord;
 use error::TxProError;
-use rust_decimal::Decimal;
 
 /// Column indices resolved from the header row.
 pub struct Columns {
@@ -67,12 +68,16 @@ impl InputRecordParser {
         })?;
 
         let amount_raw = get(cols.amount, "amount")?;
-        let amount: Decimal = amount_raw.parse().map_err(|_| TxProError::BadField {
-            line,
-            column: "amount",
-            value: amount_raw.to_string(),
-            expected: "Decimal",
-        })?;
+        let amount: Decimal = if amount_raw.is_empty() {
+            Decimal::ZERO
+        } else {
+            amount_raw.parse().map_err(|_| TxProError::BadField {
+                line,
+                column: "amount",
+                value: amount_raw.to_string(),
+                expected: "Decimal",
+            })?
+        };
 
         let amount = amount.trunc_with_scale(4);
 
