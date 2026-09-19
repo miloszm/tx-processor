@@ -1,8 +1,8 @@
 mod accounts;
 mod driver;
 mod error;
-mod input_record_processor;
 mod parser;
+mod processor;
 mod types;
 
 use std::env;

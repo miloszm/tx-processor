@@ -2,7 +2,6 @@ use crate::error::TxProError;
 use crate::types::{
     CLIENTS_HEADER, ClientData, OpOutcome, RejectReason, TransactionRecord, TypeOp,
 };
-use TxProError::BadOp;
 use rust_decimal::Decimal;
 use std::collections::BTreeMap;
 use std::collections::btree_map::Entry::{Occupied, Vacant};
@@ -62,7 +61,7 @@ impl Accounts {
                 return Ok(OpOutcome::Rejected(RejectReason::UnknownClient));
             }
             Some(data) => {
-                if amount < data.available {
+                if data.available < amount {
                     return Ok(OpOutcome::Rejected(RejectReason::InsufficientFunds));
                 }
                 (*data).available -= amount;
@@ -120,8 +119,11 @@ impl Accounts {
             }
             Some(data) => {
                 if let Some(tr) = self.txs.get(&tx) {
-                    if tr.type_op == TypeOp::Dispute {
+                    if tr.type_op != TypeOp::Dispute {
                         return Ok(OpOutcome::Rejected(RejectReason::TxNotDisputed));
+                    }
+                    if tr.client != client {
+                        return Ok(OpOutcome::Rejected(RejectReason::DisputedTxWrongClient));
                     }
                     if let Some(amount) = tr.amount {
                         if data.held < amount {
@@ -156,6 +158,9 @@ impl Accounts {
             }
             Some(data) => {
                 if let Some(tr) = self.txs.get(&tx) {
+                    if tr.client != client {
+                        return Ok(OpOutcome::Rejected(RejectReason::DisputedTxWrongClient));
+                    }
                     if let Some(amount) = tr.amount {
                         if data.held < amount {
                             return Ok(OpOutcome::Rejected(RejectReason::InsufficientHeldFunds));

@@ -4,9 +4,6 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum TxProError {
-    /// Wrong number of command-line arguments.
-    #[error("expected exactly one argument (a CSV file path), got {got}")]
-    BadArgs { got: usize },
     #[error("failed to open `{path}`")]
     Io {
         path: PathBuf,
@@ -39,7 +36,4 @@ pub enum TxProError {
         #[source]
         source: UnknownTypeOp,
     },
-
-    #[error("operation failed: `{value}`")]
-    BadOp { value: String },
 }

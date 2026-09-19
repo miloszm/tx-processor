@@ -48,14 +48,6 @@ pub struct ClientData {
 }
 
 #[derive(Debug)]
-pub struct Transaction {
-    pub type_op: TypeOp,
-    pub client: u16,
-    pub tx: u32,
-    pub amount: Option<Decimal>,
-}
-
-#[derive(Debug)]
 pub struct TransactionRecord {
     pub type_op: TypeOp,
     pub client: u16,
@@ -74,6 +66,7 @@ pub enum RejectReason {
     UnknownClient,
     DisputedTxLacksAmount,
     DisputedTxNotFound,
+    DisputedTxWrongClient,
     TxNotDisputed,
     InsufficientHeldFunds,
 }
