@@ -19,12 +19,12 @@ impl FromStr for TypeOp {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "deposit"    => Ok(TypeOp::Deposit),
+            "deposit" => Ok(TypeOp::Deposit),
             "withdrawal" => Ok(TypeOp::Withdrawal),
-            "dispute"    => Ok(TypeOp::Dispute),
-            "resolve"    => Ok(TypeOp::Resolve),
+            "dispute" => Ok(TypeOp::Dispute),
+            "resolve" => Ok(TypeOp::Resolve),
             "chargeback" => Ok(TypeOp::Chargeback),
-            other        => Err(UnknownTypeOp(other.to_string())),
+            other => Err(UnknownTypeOp(other.to_string())),
         }
     }
 }
@@ -59,5 +59,12 @@ pub struct Transaction {
     pub type_op: TypeOp,
     pub client: u16,
     pub tx: u32,
+    pub amount: Option<Decimal>,
+}
+
+#[derive(Debug)]
+pub struct TransactionRecord {
+    pub type_op: TypeOp,
+    pub client: u16,
     pub amount: Option<Decimal>,
 }

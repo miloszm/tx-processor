@@ -1,6 +1,6 @@
+use crate::types::UnknownTypeOp;
 use std::path::PathBuf;
 use thiserror::Error;
-use crate::types::UnknownTypeOp;
 
 #[derive(Debug, Error)]
 pub enum TxProError {
@@ -39,4 +39,7 @@ pub enum TxProError {
         #[source]
         source: UnknownTypeOp,
     },
+
+    #[error("operation failed: `{value}`")]
+    BadOp { value: String },
 }

@@ -1,9 +1,9 @@
+mod accounts;
 mod driver;
 mod error;
 mod input_record_processor;
 mod parser;
 mod types;
-mod accounts;
 
 use std::env;
 use std::process;

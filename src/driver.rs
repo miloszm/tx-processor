@@ -2,12 +2,12 @@ use std::error::Error;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 
+use crate::accounts::Accounts;
 use crate::error::TxProError;
 use crate::input_record_processor::InputRecordProcessor;
 use crate::parser::{Columns, InputRecordParser};
 use csv::{ReaderBuilder, StringRecord};
 use rust_decimal::Decimal;
-use crate::accounts::Accounts;
 
 pub struct TxProcessor;
 
@@ -34,7 +34,7 @@ impl TxProcessor {
         while reader.read_record(&mut record)? {
             line_no += 1;
             let input_record = InputRecordParser::parse_record(&record, &cols, line_no)?;
-            InputRecordProcessor::process(input_record, &mut accounts);
+            InputRecordProcessor::process(input_record, &mut accounts)?;
         }
 
         Ok(())
