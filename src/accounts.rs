@@ -36,6 +36,9 @@ impl Accounts {
                 });
             }
             Occupied(mut e) => {
+                if e.get().locked {
+                    return Ok(OpOutcome::Rejected(RejectReason::AccountLocked));
+                }
                 e.get_mut().available += amount;
                 e.get_mut().total += amount;
             }
@@ -63,6 +66,9 @@ impl Accounts {
                 return Ok(OpOutcome::Rejected(RejectReason::UnknownClient));
             }
             Some(data) => {
+                if data.locked {
+                    return Ok(OpOutcome::Rejected(RejectReason::AccountLocked));
+                }
                 if data.available < amount {
                     return Ok(OpOutcome::Rejected(RejectReason::InsufficientFunds));
                 }
@@ -83,131 +89,110 @@ impl Accounts {
     }
 
     pub fn dispute(&mut self, client: u16, tx: u32) -> Result<OpOutcome, TxProError> {
-        match self.data.get_mut(&client) {
-            None => {
-                return Ok(OpOutcome::Rejected(RejectReason::UnknownClient));
-            }
-            Some(data) => {
-                if let Some(tr) = self.txs.get(&tx) {
-                    if tr.state != TxState::Active {
-                        return Ok(OpOutcome::Rejected(RejectReason::TxNotActive));
-                    }
-                    if tr.client != client {
-                        return Ok(OpOutcome::Rejected(RejectReason::DisputedTxWrongClient));
-                    }
-                    let amount = tr.amount;
-                    if data.available < amount {
-                        return Ok(OpOutcome::Rejected(
-                            RejectReason::InsufficientFundsForDispute,
-                        ));
-                    }
-                    data.available -= amount;
-                    data.held += amount;
-                    self.txs.insert(
-                        tx,
-                        TransactionRecord {
-                            type_op: tr.type_op,
-                            client,
-                            amount,
-                            state: TxState::Disputed,
-                        },
-                    );
-                } else {
-                    return Ok(OpOutcome::Rejected(RejectReason::DisputedTxNotFound));
-                }
-            }
+        let Some(data) = self.data.get_mut(&client) else {
+            return Ok(OpOutcome::Rejected(RejectReason::UnknownClient));
+        };
+        let Some(tr) = self.txs.get(&tx) else {
+            return Ok(OpOutcome::Rejected(RejectReason::DisputedTxNotFound));
+        };
+
+        if tr.state != TxState::Active {
+            return Ok(OpOutcome::Rejected(RejectReason::TxNotActive));
+        }
+        if tr.client != client {
+            return Ok(OpOutcome::Rejected(RejectReason::DisputedTxWrongClient));
         }
 
+        let amount = tr.amount;
+        if data.available < amount {
+            return Ok(OpOutcome::Rejected(RejectReason::InsufficientFundsForDispute));
+        }
+
+        data.available -= amount;
+        data.held += amount;
+        self.txs.insert(
+            tx,
+            TransactionRecord {
+                type_op: tr.type_op,
+                client,
+                amount,
+                state: TxState::Disputed,
+            },
+        );
         Ok(OpOutcome::Applied)
     }
 
     pub fn resolve(&mut self, client: u16, tx: u32) -> Result<OpOutcome, TxProError> {
-        match self.data.get_mut(&client) {
-            None => {
-                return Ok(OpOutcome::Rejected(RejectReason::UnknownClient));
-            }
-            Some(data) => {
-                if let Some(tr) = self.txs.get(&tx) {
-                    if tr.state != TxState::Disputed {
-                        return Ok(OpOutcome::Rejected(RejectReason::TxNotDisputed));
-                    }
-                    if tr.client != client {
-                        return Ok(OpOutcome::Rejected(RejectReason::DisputedTxWrongClient));
-                    }
-                    let amount = tr.amount;
-                    if data.held < amount {
-                        return Ok(OpOutcome::Rejected(RejectReason::InsufficientHeldFunds));
-                    }
-                    data.available += amount;
-                    data.held -= amount;
-                    self.txs.insert(
-                        tx,
-                        TransactionRecord {
-                            type_op: tr.type_op,
-                            client,
-                            amount,
-                            state: TxState::Resolved,
-                        },
-                    );
-                } else {
-                    return Ok(OpOutcome::Rejected(RejectReason::DisputedTxNotFound));
-                }
-            }
+        let Some(data) = self.data.get_mut(&client) else {
+            return Ok(OpOutcome::Rejected(RejectReason::UnknownClient));
+        };
+        let Some(tr) = self.txs.get(&tx) else {
+            return Ok(OpOutcome::Rejected(RejectReason::DisputedTxNotFound));
+        };
+        if tr.state != TxState::Disputed {
+            return Ok(OpOutcome::Rejected(RejectReason::TxNotDisputed));
         }
-
+        if tr.client != client {
+            return Ok(OpOutcome::Rejected(RejectReason::DisputedTxWrongClient));
+        }
+        let amount = tr.amount;
+        if data.held < amount {
+            return Ok(OpOutcome::Rejected(RejectReason::InsufficientHeldFunds));
+        }
+        data.available += amount;
+        data.held -= amount;
+        self.txs.insert(
+            tx,
+            TransactionRecord {
+                type_op: tr.type_op,
+                client,
+                amount,
+                state: TxState::Resolved,
+            },
+        );
         Ok(OpOutcome::Applied)
     }
 
     pub fn chargeback(&mut self, client: u16, tx: u32) -> Result<OpOutcome, TxProError> {
-        match self.data.get_mut(&client) {
-            None => {
-                return Ok(OpOutcome::Rejected(RejectReason::UnknownClient));
-            }
-            Some(data) => {
-                if let Some(tr) = self.txs.get(&tx) {
-                    if tr.state != TxState::Disputed {
-                        return Ok(OpOutcome::Rejected(RejectReason::TxNotDisputed));
-                    }
-                    if tr.client != client {
-                        return Ok(OpOutcome::Rejected(RejectReason::DisputedTxWrongClient));
-                    }
-                    let amount = tr.amount;
-                    if data.held < amount {
-                        return Ok(OpOutcome::Rejected(RejectReason::InsufficientHeldFunds));
-                    }
-                    data.held -= amount;
-                    data.total -= amount;
-                    data.locked = true;
-                    self.txs.insert(
-                        tx,
-                        TransactionRecord {
-                            type_op: tr.type_op,
-                            client,
-                            amount,
-                            state: TxState::ChargedBack,
-                        },
-                    );
-                } else {
-                    return Ok(OpOutcome::Rejected(RejectReason::DisputedTxNotFound));
-                }
-            }
+        let Some(data) = self.data.get_mut(&client) else {
+            return Ok(OpOutcome::Rejected(RejectReason::UnknownClient));
+        };
+        let Some(tr) = self.txs.get(&tx) else {
+            return Ok(OpOutcome::Rejected(RejectReason::DisputedTxNotFound));
+        };
+        if tr.state != TxState::Disputed {
+            return Ok(OpOutcome::Rejected(RejectReason::TxNotDisputed));
         }
-
+        if tr.client != client {
+            return Ok(OpOutcome::Rejected(RejectReason::DisputedTxWrongClient));
+        }
+        let amount = tr.amount;
+        if data.held < amount {
+            return Ok(OpOutcome::Rejected(RejectReason::InsufficientHeldFunds));
+        }
+        data.held -= amount;
+        data.total -= amount;
+        data.locked = true;
+        self.txs.insert(
+            tx,
+            TransactionRecord {
+                type_op: tr.type_op,
+                client,
+                amount,
+                state: TxState::ChargedBack,
+            },
+        );
         Ok(OpOutcome::Applied)
     }
 
-    pub fn client_records(&self) -> Vec<OutputRecord> {
-        let mut result = vec![];
-        for (&client, data) in self.data.range(..) {
-            result.push(OutputRecord {
-                client,
-                available: data.available,
-                held: data.held,
-                total: data.total,
-                locked: data.locked,
-            })
-        }
-        result
+    pub fn client_records(&self) -> impl Iterator<Item = OutputRecord> + '_ {
+        self.data.iter().map(|(&client, data)| OutputRecord {
+            client,
+            available: data.available,
+            held: data.held,
+            total: data.total,
+            locked: data.locked,
+        })
     }
 
     // todo
@@ -239,6 +224,10 @@ mod tests {
         Accounts::new()
     }
 
+    fn records_vec(acc: &Accounts) -> Vec<OutputRecord> {
+        acc.client_records().collect()
+    }
+
     fn assert_client(
         acc: &Accounts,
         client: u16,
@@ -247,34 +236,34 @@ mod tests {
         total: Decimal,
         locked: bool,
     ) {
-        let records = acc.client_records();
+        let records = records_vec(acc);
         let rec = records
             .iter()
             .find(|r| r.client == client)
             .unwrap_or_else(|| panic!("no record for client {client}"));
 
-        assert_eq!(
-            rec.available, available,
-            "available mismatch for client {client}"
-        );
+        assert_eq!(rec.available, available, "available mismatch for client {client}");
         assert_eq!(rec.held, held, "held mismatch for client {client}");
         assert_eq!(rec.total, total, "total mismatch for client {client}");
         assert_eq!(rec.locked, locked, "locked mismatch for client {client}");
     }
 
     fn assert_no_client(acc: &Accounts, client: u16) {
-        let records = acc.client_records();
+        let records = records_vec(acc);
         assert!(
             records.iter().all(|r| r.client != client),
             "expected no record for client {client}, found one"
         );
     }
 
-    /// Assert the tx record's state (and, under Option A, that type_op was
-    /// not mutated by dispute/resolve/chargeback).
     fn assert_tx_state(acc: &Accounts, tx: u32, state: TxState) {
         let tr = acc.txs.get(&tx).expect("tx should exist");
         assert_eq!(tr.state, state, "state mismatch for tx {tx}");
+    }
+
+    fn assert_tx_op(acc: &Accounts, tx: u32, op: TxRecordTypeOp) {
+        let tr = acc.txs.get(&tx).expect("tx should exist");
+        assert_eq!(tr.type_op, op, "type_op mismatch for tx {tx}");
     }
 
     // ------------------------------------------------------------------
@@ -288,8 +277,9 @@ mod tests {
 
         assert_eq!(outcome, OpOutcome::Applied);
         assert_client(&acc, 1, dec!(10.00), dec!(0), dec!(10.00), false);
-        assert_eq!(acc.client_records().len(), 1);
+        assert_eq!(records_vec(&acc).len(), 1);
         assert_tx_state(&acc, 100, TxState::Active);
+        assert_tx_op(&acc, 100, TxRecordTypeOp::Deposit);
     }
 
     #[test]
@@ -313,15 +303,19 @@ mod tests {
     }
 
     #[test]
-    fn deposit_records_tx_as_active_deposit() {
+    fn deposit_rejects_locked_account() {
         let mut acc = accounts();
         acc.deposit(1, dec!(10.00), 100).unwrap();
+        acc.dispute(1, 100).unwrap();
+        acc.chargeback(1, 100).unwrap();
+        // Client 1 is now locked.
 
-        let tr = acc.txs.get(&100).unwrap();
-        assert_eq!(tr.type_op, TxRecordTypeOp::Deposit);
-        assert_eq!(tr.client, 1);
-        assert_eq!(tr.amount, dec!(10.00));
-        assert_eq!(tr.state, TxState::Active);
+        let outcome = acc.deposit(1, dec!(5.00), 101).unwrap();
+
+        assert_eq!(outcome, OpOutcome::Rejected(RejectReason::AccountLocked));
+        // State unchanged; failed deposit not recorded.
+        assert_client(&acc, 1, dec!(0), dec!(0), dec!(0), true);
+        assert!(acc.txs.get(&101).is_none());
     }
 
     // ------------------------------------------------------------------
@@ -335,10 +329,7 @@ mod tests {
 
         assert_eq!(outcome, OpOutcome::Rejected(RejectReason::UnknownClient));
         assert_no_client(&acc, 1);
-        assert!(
-            acc.txs.get(&100).is_none(),
-            "rejected withdrawal must not be recorded"
-        );
+        assert!(acc.txs.get(&100).is_none());
     }
 
     #[test]
@@ -347,11 +338,22 @@ mod tests {
         acc.deposit(1, dec!(10.00), 100).unwrap();
         let outcome = acc.withdrawal(1, dec!(15.00), 101).unwrap();
 
-        assert_eq!(
-            outcome,
-            OpOutcome::Rejected(RejectReason::InsufficientFunds)
-        );
+        assert_eq!(outcome, OpOutcome::Rejected(RejectReason::InsufficientFunds));
         assert_client(&acc, 1, dec!(10.00), dec!(0), dec!(10.00), false);
+        assert!(acc.txs.get(&101).is_none());
+    }
+
+    #[test]
+    fn withdrawal_rejects_locked_account() {
+        let mut acc = accounts();
+        acc.deposit(1, dec!(10.00), 100).unwrap();
+        acc.dispute(1, 100).unwrap();
+        acc.chargeback(1, 100).unwrap();
+        // Client 1 is now locked, available=0, held=0, total=0.
+
+        let outcome = acc.withdrawal(1, dec!(0.00), 101).unwrap();
+
+        assert_eq!(outcome, OpOutcome::Rejected(RejectReason::AccountLocked));
         assert!(acc.txs.get(&101).is_none());
     }
 
@@ -392,10 +394,7 @@ mod tests {
         acc.deposit(1, dec!(10.00), 100).unwrap();
         let outcome = acc.dispute(1, 999).unwrap();
 
-        assert_eq!(
-            outcome,
-            OpOutcome::Rejected(RejectReason::DisputedTxNotFound)
-        );
+        assert_eq!(outcome, OpOutcome::Rejected(RejectReason::DisputedTxNotFound));
     }
 
     #[test]
@@ -407,6 +406,8 @@ mod tests {
         assert_eq!(outcome, OpOutcome::Applied);
         assert_client(&acc, 1, dec!(0), dec!(10.00), dec!(10.00), false);
         assert_tx_state(&acc, 100, TxState::Disputed);
+        // type_op is preserved as the original op.
+        assert_tx_op(&acc, 100, TxRecordTypeOp::Deposit);
     }
 
     #[test]
@@ -445,11 +446,24 @@ mod tests {
 
         let outcome = acc.dispute(2, 100).unwrap();
 
-        assert_eq!(
-            outcome,
-            OpOutcome::Rejected(RejectReason::DisputedTxWrongClient)
-        );
+        assert_eq!(outcome, OpOutcome::Rejected(RejectReason::DisputedTxWrongClient));
         assert_client(&acc, 2, dec!(5.00), dec!(0), dec!(5.00), false);
+        // Original tx left Active.
+        assert_tx_state(&acc, 100, TxState::Active);
+    }
+
+    #[test]
+    fn dispute_after_withdrawal_moves_held_correctly() {
+        let mut acc = accounts();
+        acc.deposit(1, dec!(10.00), 100).unwrap();
+        acc.withdrawal(1, dec!(3.00), 101).unwrap();
+        // available = 7.00, total = 7.00
+
+        let outcome = acc.dispute(1, 101).unwrap();
+
+        assert_eq!(outcome, OpOutcome::Applied);
+        // Disputing a withdrawal moves 3.00 from available to held.
+        assert_client(&acc, 1, dec!(4.00), dec!(3.00), dec!(7.00), false);
     }
 
     // ------------------------------------------------------------------
@@ -469,10 +483,7 @@ mod tests {
         acc.deposit(1, dec!(10.00), 100).unwrap();
         let outcome = acc.resolve(1, 999).unwrap();
 
-        assert_eq!(
-            outcome,
-            OpOutcome::Rejected(RejectReason::DisputedTxNotFound)
-        );
+        assert_eq!(outcome, OpOutcome::Rejected(RejectReason::DisputedTxNotFound));
     }
 
     #[test]
@@ -483,7 +494,6 @@ mod tests {
         let outcome = acc.resolve(1, 100).unwrap();
 
         assert_eq!(outcome, OpOutcome::Rejected(RejectReason::TxNotDisputed));
-        // Tx left alone.
         assert_tx_state(&acc, 100, TxState::Active);
     }
 
@@ -496,10 +506,7 @@ mod tests {
 
         let outcome = acc.resolve(2, 100).unwrap();
 
-        assert_eq!(
-            outcome,
-            OpOutcome::Rejected(RejectReason::DisputedTxWrongClient)
-        );
+        assert_eq!(outcome, OpOutcome::Rejected(RejectReason::DisputedTxWrongClient));
     }
 
     #[test]
@@ -513,6 +520,7 @@ mod tests {
         assert_eq!(outcome, OpOutcome::Applied);
         assert_client(&acc, 1, dec!(10.00), dec!(0), dec!(10.00), false);
         assert_tx_state(&acc, 100, TxState::Resolved);
+        assert_tx_op(&acc, 100, TxRecordTypeOp::Deposit);
     }
 
     #[test]
@@ -525,7 +533,6 @@ mod tests {
         let outcome = acc.resolve(1, 100).unwrap();
 
         assert_eq!(outcome, OpOutcome::Rejected(RejectReason::TxNotDisputed));
-        // State unchanged from the first resolve.
         assert_client(&acc, 1, dec!(10.00), dec!(0), dec!(10.00), false);
     }
 
@@ -546,10 +553,7 @@ mod tests {
         acc.deposit(1, dec!(10.00), 100).unwrap();
         let outcome = acc.chargeback(1, 999).unwrap();
 
-        assert_eq!(
-            outcome,
-            OpOutcome::Rejected(RejectReason::DisputedTxNotFound)
-        );
+        assert_eq!(outcome, OpOutcome::Rejected(RejectReason::DisputedTxNotFound));
     }
 
     #[test]
@@ -572,10 +576,7 @@ mod tests {
 
         let outcome = acc.chargeback(2, 100).unwrap();
 
-        assert_eq!(
-            outcome,
-            OpOutcome::Rejected(RejectReason::DisputedTxWrongClient)
-        );
+        assert_eq!(outcome, OpOutcome::Rejected(RejectReason::DisputedTxWrongClient));
     }
 
     #[test]
@@ -589,6 +590,7 @@ mod tests {
         assert_eq!(outcome, OpOutcome::Applied);
         assert_client(&acc, 1, dec!(0), dec!(0), dec!(0), true);
         assert_tx_state(&acc, 100, TxState::ChargedBack);
+        assert_tx_op(&acc, 100, TxRecordTypeOp::Deposit);
     }
 
     #[test]
@@ -635,7 +637,7 @@ mod tests {
     #[test]
     fn client_records_empty_state_is_empty() {
         let acc = accounts();
-        assert!(acc.client_records().is_empty());
+        assert_eq!(acc.client_records().count(), 0);
     }
 
     #[test]
@@ -645,12 +647,26 @@ mod tests {
         acc.deposit(1, dec!(1.00), 101).unwrap();
         acc.deposit(2, dec!(1.00), 102).unwrap();
 
-        let ids: Vec<u16> = acc.client_records().iter().map(|r| r.client).collect();
+        let ids: Vec<u16> = acc.client_records().map(|r| r.client).collect();
         assert_eq!(ids, vec![1, 2, 3]);
     }
 
+    #[test]
+    fn client_records_carry_locked_and_held() {
+        let mut acc = accounts();
+        acc.deposit(1, dec!(10.00), 100).unwrap();
+        acc.dispute(1, 100).unwrap();
+        acc.chargeback(1, 100).unwrap();
+
+        let records: Vec<_> = acc.client_records().collect();
+        assert_eq!(records.len(), 1);
+        assert!(records[0].locked);
+        assert_eq!(records[0].held, dec!(0));
+        assert_eq!(records[0].total, dec!(0));
+    }
+
     // ------------------------------------------------------------------
-    // Invariant: available + held == total (across a whole scenario)
+    // Invariant: available + held == total
     // ------------------------------------------------------------------
 
     #[test]
@@ -711,5 +727,23 @@ mod tests {
         acc.withdrawal(1, dec!(3.00), 3).unwrap();
 
         assert_client(&acc, 1, dec!(12.00), dec!(0), dec!(12.00), false);
+    }
+
+    #[test]
+    fn scenario_locked_account_rejects_all_external_ops() {
+        let mut acc = accounts();
+        acc.deposit(1, dec!(10.00), 100).unwrap();
+        acc.dispute(1, 100).unwrap();
+        acc.chargeback(1, 100).unwrap();
+        // Client 1 locked.
+
+        assert_eq!(
+            acc.deposit(1, dec!(1.00), 200).unwrap(),
+            OpOutcome::Rejected(RejectReason::AccountLocked)
+        );
+        assert_eq!(
+            acc.withdrawal(1, dec!(1.00), 201).unwrap(),
+            OpOutcome::Rejected(RejectReason::AccountLocked)
+        );
     }
 }

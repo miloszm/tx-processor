@@ -94,4 +94,5 @@ pub enum RejectReason {
     TxNotDisputed,
     TxNotActive,
     InsufficientHeldFunds,
+    AccountLocked,
 }
