@@ -2,7 +2,7 @@ mod accounts;
 mod driver;
 mod error;
 mod parser;
-mod processor;
+mod dispatcher;
 mod types;
 
 use std::env;

@@ -4,7 +4,7 @@ use std::path::Path;
 use crate::accounts::Accounts;
 use crate::error::TxProError;
 use crate::parser::{Columns, InputRecordParser};
-use crate::processor::InputRecordProcessor;
+use crate::dispatcher::dispatch;
 use csv::{ReaderBuilder, StringRecord};
 
 pub struct TxProcessor;
@@ -29,7 +29,7 @@ impl TxProcessor {
         while reader.read_record(&mut record)? {
             line_no += 1;
             let input_record = InputRecordParser::parse_record(&record, &cols, line_no)?;
-            let _op_outcome = InputRecordProcessor::process(input_record, &mut accounts)?;
+            let _op_outcome = dispatch(&input_record, &mut accounts)?;
         }
 
         let stdout = std::io::stdout();

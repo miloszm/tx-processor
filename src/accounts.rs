@@ -9,8 +9,8 @@ use std::collections::btree_map::Entry::{Occupied, Vacant};
 use std::io::Write;
 
 pub struct Accounts {
-    data: BTreeMap<u16, ClientData>,
-    txs: BTreeMap<u32, TransactionRecord>,
+    pub(crate) data: BTreeMap<u16, ClientData>,
+    pub(crate) txs: BTreeMap<u32, TransactionRecord>,
 }
 
 impl Accounts {
