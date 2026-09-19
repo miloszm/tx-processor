@@ -29,7 +29,7 @@ impl FromStr for TypeOp {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InputRecord {
     pub type_op: String,
     pub client: u16,
@@ -39,7 +39,7 @@ pub struct InputRecord {
 
 pub const CLIENTS_HEADER: &[&str] = &["client", "available", "held", "total", "locked"];
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ClientData {
     pub available: Decimal,
     pub held: Decimal,
@@ -47,26 +47,51 @@ pub struct ClientData {
     pub locked: bool,
 }
 
-#[derive(Debug)]
-pub struct TransactionRecord {
-    pub type_op: TypeOp,
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct OutputRecord {
     pub client: u16,
-    pub amount: Option<Decimal>,
+    pub available: Decimal,
+    pub held: Decimal,
+    pub total: Decimal,
+    pub locked: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TransactionRecord {
+    pub type_op: TxRecordTypeOp,
+    pub client: u16,
+    pub amount: Decimal,
+    pub state: TxState,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TxRecordTypeOp {
+    Deposit,
+    Withdrawal,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TxState {
+    Active,
+    Disputed,
+    Resolved,
+    ChargedBack,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OpOutcome {
     Applied,
     Rejected(RejectReason),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RejectReason {
     InsufficientFunds,
+    InsufficientFundsForDispute,
     UnknownClient,
-    DisputedTxLacksAmount,
     DisputedTxNotFound,
     DisputedTxWrongClient,
     TxNotDisputed,
+    TxNotActive,
     InsufficientHeldFunds,
 }
