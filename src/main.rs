@@ -1,5 +1,8 @@
-mod processor;
+mod driver;
 mod error;
+mod input_record_processor;
+mod parser;
+mod types;
 
 use std::env;
 use std::process;
@@ -20,7 +23,7 @@ fn main() {
         process::exit(1);
     }
 
-    let result = processor::TxProcessor::process(&file_path);
+    let result = driver::TxProcessor::run(&file_path);
 
     println!("result={:?}", result)
 }

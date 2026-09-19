@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 csv = "1.4"
 thiserror = "2.0"
+rust_decimal = "1.43"
