@@ -1,5 +1,7 @@
 use crate::error::TxProError;
-use crate::types::{ClientData, TransactionRecord, TypeOp, CLIENTS_HEADER};
+use crate::types::{
+    CLIENTS_HEADER, ClientData, OpOutcome, RejectReason, TransactionRecord, TypeOp,
+};
 use TxProError::BadOp;
 use rust_decimal::Decimal;
 use std::collections::BTreeMap;
@@ -18,7 +20,12 @@ impl Accounts {
         }
     }
 
-    pub fn deposit(&mut self, client: u16, amount: Decimal, tx: u32) -> Result<(), TxProError> {
+    pub fn deposit(
+        &mut self,
+        client: u16,
+        amount: Decimal,
+        tx: u32,
+    ) -> Result<OpOutcome, TxProError> {
         match self.data.entry(client) {
             Vacant(e) => {
                 e.insert(ClientData {
@@ -41,21 +48,22 @@ impl Accounts {
                 amount: Some(amount),
             },
         );
-        Ok(())
+        Ok(OpOutcome::Applied)
     }
 
-    pub fn withdrawal(&mut self, client: u16, amount: Decimal, tx: u32) -> Result<(), TxProError> {
+    pub fn withdrawal(
+        &mut self,
+        client: u16,
+        amount: Decimal,
+        tx: u32,
+    ) -> Result<OpOutcome, TxProError> {
         match self.data.get_mut(&client) {
             None => {
-                return Err(BadOp {
-                    value: "withdrawal rejected, client not found".into(),
-                });
+                return Ok(OpOutcome::Rejected(RejectReason::UnknownClient));
             }
             Some(data) => {
                 if amount < data.available {
-                    return Err(BadOp {
-                        value: "withdrawal aborted, insufficent funds".into(),
-                    });
+                    return Ok(OpOutcome::Rejected(RejectReason::InsufficientFunds));
                 }
                 (*data).available -= amount;
                 (*data).total -= amount
@@ -69,23 +77,19 @@ impl Accounts {
                 amount: Some(amount),
             },
         );
-        Ok(())
+        Ok(OpOutcome::Applied)
     }
 
-    pub fn dispute(&mut self, client: u16, tx: u32) -> Result<(), TxProError> {
+    pub fn dispute(&mut self, client: u16, tx: u32) -> Result<OpOutcome, TxProError> {
         match self.data.get_mut(&client) {
             None => {
-                return Err(BadOp {
-                    value: "dispute rejected, client not found".into(),
-                });
+                return Ok(OpOutcome::Rejected(RejectReason::UnknownClient));
             }
             Some(data) => {
                 if let Some(tr) = self.txs.get(&tx) {
                     if let Some(amount) = tr.amount {
                         if data.available < amount {
-                            return Err(BadOp {
-                                value: "dispute rejected, insufficient funds".into(),
-                            });
+                            return Ok(OpOutcome::Rejected(RejectReason::InsufficientFunds));
                         }
                         (*data).available -= amount;
                         (*data).held += amount;
@@ -98,40 +102,30 @@ impl Accounts {
                             },
                         );
                     } else {
-                        return Err(BadOp {
-                            value: "dispute rejected, transaction does not have amount".into(),
-                        });
+                        return Ok(OpOutcome::Rejected(RejectReason::DisputedTxLacksAmount));
                     }
                 } else {
-                    return Err(BadOp {
-                        value: "dispute rejected, transaction not found".into(),
-                    });
+                    return Ok(OpOutcome::Rejected(RejectReason::DisputedTxNotFound));
                 }
             }
         }
 
-        Ok(())
+        Ok(OpOutcome::Applied)
     }
 
-    pub fn resolve(&mut self, client: u16, tx: u32) -> Result<(), TxProError> {
+    pub fn resolve(&mut self, client: u16, tx: u32) -> Result<OpOutcome, TxProError> {
         match self.data.get_mut(&client) {
             None => {
-                return Err(BadOp {
-                    value: "resolve rejected, client not found".into(),
-                });
+                return Ok(OpOutcome::Rejected(RejectReason::UnknownClient));
             }
             Some(data) => {
                 if let Some(tr) = self.txs.get(&tx) {
                     if tr.type_op == TypeOp::Dispute {
-                        return Err(BadOp {
-                            value: "resolve rejected, transaction is not disputed".into(),
-                        });
+                        return Ok(OpOutcome::Rejected(RejectReason::TxNotDisputed));
                     }
                     if let Some(amount) = tr.amount {
                         if data.held < amount {
-                            return Err(BadOp {
-                                value: "resolve rejected, insufficient held funds".into(),
-                            });
+                            return Ok(OpOutcome::Rejected(RejectReason::InsufficientHeldFunds));
                         }
                         (*data).available += amount;
                         (*data).held -= amount;
@@ -144,35 +138,27 @@ impl Accounts {
                             },
                         );
                     } else {
-                        return Err(BadOp {
-                            value: "resolve rejected, transaction does not have amount".into(),
-                        });
+                        return Ok(OpOutcome::Rejected(RejectReason::DisputedTxLacksAmount));
                     }
                 } else {
-                    return Err(BadOp {
-                        value: "resolve rejected, transaction not found".into(),
-                    });
+                    return Ok(OpOutcome::Rejected(RejectReason::DisputedTxNotFound));
                 }
             }
         }
 
-        Ok(())
+        Ok(OpOutcome::Applied)
     }
 
-    pub fn chargeback(&mut self, client: u16, tx: u32) -> Result<(), TxProError> {
+    pub fn chargeback(&mut self, client: u16, tx: u32) -> Result<OpOutcome, TxProError> {
         match self.data.get_mut(&client) {
             None => {
-                return Err(BadOp {
-                    value: "chargeback rejected, client not found".into(),
-                });
+                return Ok(OpOutcome::Rejected(RejectReason::UnknownClient));
             }
             Some(data) => {
                 if let Some(tr) = self.txs.get(&tx) {
                     if let Some(amount) = tr.amount {
                         if data.held < amount {
-                            return Err(BadOp {
-                                value: "chargeback rejected, insufficient held funds".into(),
-                            });
+                            return Ok(OpOutcome::Rejected(RejectReason::InsufficientHeldFunds));
                         }
                         (*data).held -= amount;
                         (*data).total -= amount;
@@ -186,19 +172,15 @@ impl Accounts {
                             },
                         );
                     } else {
-                        return Err(BadOp {
-                            value: "chargeback rejected, transaction does not have amount".into(),
-                        });
+                        return Ok(OpOutcome::Rejected(RejectReason::InsufficientHeldFunds));
                     }
                 } else {
-                    return Err(BadOp {
-                        value: "chargeback rejected, transaction not found".into(),
-                    });
+                    return Ok(OpOutcome::Rejected(RejectReason::DisputedTxNotFound));
                 }
             }
         }
 
-        Ok(())
+        Ok(OpOutcome::Applied)
     }
 
     // todo
@@ -207,8 +189,11 @@ impl Accounts {
             print!("{s} ");
         }
         println!();
-        for (client, data) in self.data.range(..){
-             println!("{},{},{},{},{}", client, data.available, data.held, data.total, data.locked);
+        for (client, data) in self.data.range(..) {
+            println!(
+                "{},{},{},{},{}",
+                client, data.available, data.held, data.total, data.locked
+            );
         }
     }
 }

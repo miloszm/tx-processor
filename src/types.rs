@@ -61,3 +61,19 @@ pub struct TransactionRecord {
     pub client: u16,
     pub amount: Option<Decimal>,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum OpOutcome {
+    Applied,
+    Rejected(RejectReason),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RejectReason {
+    InsufficientFunds,
+    UnknownClient,
+    DisputedTxLacksAmount,
+    DisputedTxNotFound,
+    TxNotDisputed,
+    InsufficientHeldFunds,
+}

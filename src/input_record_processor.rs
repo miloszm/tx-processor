@@ -1,11 +1,11 @@
 use crate::accounts::Accounts;
 use crate::error::TxProError;
-use crate::types::{InputRecord, TypeOp, UnknownTypeOp};
+use crate::types::{InputRecord, OpOutcome, TypeOp, UnknownTypeOp};
 
 pub struct InputRecordProcessor;
 
 impl InputRecordProcessor {
-    pub fn process(r: InputRecord, accounts: &mut Accounts) -> Result<(), TxProError> {
+    pub fn process(r: InputRecord, accounts: &mut Accounts) -> Result<OpOutcome, TxProError> {
         let type_op: TypeOp =
             r.type_op
                 .parse()
@@ -15,23 +15,11 @@ impl InputRecordProcessor {
                 })?;
 
         match type_op {
-            TypeOp::Deposit => {
-                accounts.deposit(r.client, r.amount, r.tx)?;
-            }
-            TypeOp::Withdrawal => {
-                accounts.withdrawal(r.client, r.amount, r.tx)?;
-            }
-            TypeOp::Dispute => {
-                accounts.dispute(r.client, r.tx)?;
-            }
-            TypeOp::Resolve => {
-                accounts.resolve(r.client, r.tx)?;
-            }
-            TypeOp::Chargeback => {
-                accounts.chargeback(r.client, r.tx)?;
-            }
+            TypeOp::Deposit => accounts.deposit(r.client, r.amount, r.tx),
+            TypeOp::Withdrawal => accounts.withdrawal(r.client, r.amount, r.tx),
+            TypeOp::Dispute => accounts.dispute(r.client, r.tx),
+            TypeOp::Resolve => accounts.resolve(r.client, r.tx),
+            TypeOp::Chargeback => accounts.chargeback(r.client, r.tx),
         }
-
-        Ok(())
     }
 }
