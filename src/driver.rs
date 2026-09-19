@@ -7,6 +7,7 @@ use crate::input_record_processor::InputRecordProcessor;
 use crate::parser::{Columns, InputRecordParser};
 use csv::{ReaderBuilder, StringRecord};
 use rust_decimal::Decimal;
+use crate::accounts::Accounts;
 
 pub struct TxProcessor;
 
@@ -26,12 +27,14 @@ impl TxProcessor {
         let cols = Columns::resolve(&headers)?;
         let mut line_no = 1u64;
 
+        let mut accounts = Accounts::new();
+
         let mut record = StringRecord::new();
 
         while reader.read_record(&mut record)? {
             line_no += 1;
             let input_record = InputRecordParser::parse_record(&record, &cols, line_no)?;
-            InputRecordProcessor::process(input_record);
+            InputRecordProcessor::process(input_record, &mut accounts);
         }
 
         Ok(())
