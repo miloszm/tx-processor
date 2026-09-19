@@ -26,6 +26,7 @@ impl Accounts {
         amount: Decimal,
         tx: u32,
     ) -> Result<OpOutcome, TxProError> {
+        let amount = amount.trunc_with_scale(4);
         match self.data.entry(client) {
             Vacant(e) => {
                 e.insert(ClientData {
@@ -105,7 +106,9 @@ impl Accounts {
 
         let amount = tr.amount;
         if data.available < amount {
-            return Ok(OpOutcome::Rejected(RejectReason::InsufficientFundsForDispute));
+            return Ok(OpOutcome::Rejected(
+                RejectReason::InsufficientFundsForDispute,
+            ));
         }
 
         data.available -= amount;
@@ -242,7 +245,10 @@ mod tests {
             .find(|r| r.client == client)
             .unwrap_or_else(|| panic!("no record for client {client}"));
 
-        assert_eq!(rec.available, available, "available mismatch for client {client}");
+        assert_eq!(
+            rec.available, available,
+            "available mismatch for client {client}"
+        );
         assert_eq!(rec.held, held, "held mismatch for client {client}");
         assert_eq!(rec.total, total, "total mismatch for client {client}");
         assert_eq!(rec.locked, locked, "locked mismatch for client {client}");
@@ -338,7 +344,10 @@ mod tests {
         acc.deposit(1, dec!(10.00), 100).unwrap();
         let outcome = acc.withdrawal(1, dec!(15.00), 101).unwrap();
 
-        assert_eq!(outcome, OpOutcome::Rejected(RejectReason::InsufficientFunds));
+        assert_eq!(
+            outcome,
+            OpOutcome::Rejected(RejectReason::InsufficientFunds)
+        );
         assert_client(&acc, 1, dec!(10.00), dec!(0), dec!(10.00), false);
         assert!(acc.txs.get(&101).is_none());
     }
@@ -394,7 +403,10 @@ mod tests {
         acc.deposit(1, dec!(10.00), 100).unwrap();
         let outcome = acc.dispute(1, 999).unwrap();
 
-        assert_eq!(outcome, OpOutcome::Rejected(RejectReason::DisputedTxNotFound));
+        assert_eq!(
+            outcome,
+            OpOutcome::Rejected(RejectReason::DisputedTxNotFound)
+        );
     }
 
     #[test]
@@ -446,7 +458,10 @@ mod tests {
 
         let outcome = acc.dispute(2, 100).unwrap();
 
-        assert_eq!(outcome, OpOutcome::Rejected(RejectReason::DisputedTxWrongClient));
+        assert_eq!(
+            outcome,
+            OpOutcome::Rejected(RejectReason::DisputedTxWrongClient)
+        );
         assert_client(&acc, 2, dec!(5.00), dec!(0), dec!(5.00), false);
         // Original tx left Active.
         assert_tx_state(&acc, 100, TxState::Active);
@@ -483,7 +498,10 @@ mod tests {
         acc.deposit(1, dec!(10.00), 100).unwrap();
         let outcome = acc.resolve(1, 999).unwrap();
 
-        assert_eq!(outcome, OpOutcome::Rejected(RejectReason::DisputedTxNotFound));
+        assert_eq!(
+            outcome,
+            OpOutcome::Rejected(RejectReason::DisputedTxNotFound)
+        );
     }
 
     #[test]
@@ -506,7 +524,10 @@ mod tests {
 
         let outcome = acc.resolve(2, 100).unwrap();
 
-        assert_eq!(outcome, OpOutcome::Rejected(RejectReason::DisputedTxWrongClient));
+        assert_eq!(
+            outcome,
+            OpOutcome::Rejected(RejectReason::DisputedTxWrongClient)
+        );
     }
 
     #[test]
@@ -553,7 +574,10 @@ mod tests {
         acc.deposit(1, dec!(10.00), 100).unwrap();
         let outcome = acc.chargeback(1, 999).unwrap();
 
-        assert_eq!(outcome, OpOutcome::Rejected(RejectReason::DisputedTxNotFound));
+        assert_eq!(
+            outcome,
+            OpOutcome::Rejected(RejectReason::DisputedTxNotFound)
+        );
     }
 
     #[test]
@@ -576,7 +600,10 @@ mod tests {
 
         let outcome = acc.chargeback(2, 100).unwrap();
 
-        assert_eq!(outcome, OpOutcome::Rejected(RejectReason::DisputedTxWrongClient));
+        assert_eq!(
+            outcome,
+            OpOutcome::Rejected(RejectReason::DisputedTxWrongClient)
+        );
     }
 
     #[test]
@@ -745,5 +772,12 @@ mod tests {
             acc.withdrawal(1, dec!(1.00), 201).unwrap(),
             OpOutcome::Rejected(RejectReason::AccountLocked)
         );
+    }
+
+    #[test]
+    fn deposit_truncates_amount_to_four_decimal_places() {
+        let mut acc = accounts();
+        acc.deposit(1, dec!(1.23456789), 100).unwrap();
+        assert_client(&acc, 1, dec!(1.2345), dec!(0), dec!(1.2345), false);
     }
 }

@@ -74,6 +74,8 @@ impl InputRecordParser {
             expected: "Decimal",
         })?;
 
+        let amount = amount.trunc_with_scale(4);
+
         Ok(InputRecord {
             type_op,
             client,

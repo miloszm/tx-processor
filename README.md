@@ -87,3 +87,6 @@ Parse errors report the physical line number and the offending column/value.
 - `rust_decimal` — fixed-precision decimal (4 dp)
 - `thiserror` — error enum boilerplate
 - `rust_decimal_macros` (dev) — `dec!()` literals in tests
+
+## Notes
+Amounts are accepted with 4 decimal points, extra decimal points if provided will be dropped.
