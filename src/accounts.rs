@@ -1,11 +1,12 @@
 use crate::error::TxProError;
 use crate::types::{
-    CLIENTS_HEADER, ClientData, OpOutcome, OutputRecord, RejectReason, TransactionRecord,
+    ClientData, OUTPUT_HEADER, OpOutcome, OutputRecord, RejectReason, TransactionRecord,
     TxRecordTypeOp, TxState,
 };
 use rust_decimal::Decimal;
 use std::collections::BTreeMap;
 use std::collections::btree_map::Entry::{Occupied, Vacant};
+use std::io::Write;
 
 pub struct Accounts {
     data: BTreeMap<u16, ClientData>,
@@ -199,18 +200,20 @@ impl Accounts {
         })
     }
 
-    // todo
-    pub fn print_accounts(&self) {
-        for s in CLIENTS_HEADER {
-            print!("{s} ");
-        }
-        println!();
-        for (client, data) in self.data.range(..) {
-            println!(
+    /// Writes one CSV row per client to `out`.
+    pub fn print_accounts<W: Write>(&self, out: &mut W) -> Result<(), TxProError> {
+        writeln!(out, "{}", OUTPUT_HEADER)?;
+
+        for record in self.client_records() {
+            writeln!(
+                out,
                 "{},{},{},{},{}",
-                client, data.available, data.held, data.total, data.locked
-            );
+                record.client, record.available, record.held, record.total, record.locked,
+            )?;
         }
+
+        out.flush()?;
+        Ok(())
     }
 }
 
@@ -788,5 +791,23 @@ mod tests {
         acc.deposit(1, dec!(1.2345), 100).unwrap();
         acc.withdrawal(1, dec!(0.23456789), 101).unwrap();
         assert_client(&acc, 1, dec!(1.0000), dec!(0), dec!(1.0000), false);
+    }
+
+    #[test]
+    fn print_accounts_emits_header_and_rows() {
+        let mut acc = accounts();
+        acc.deposit(1, dec!(10.00), 100).unwrap();
+        acc.deposit(2, dec!(5.50), 101).unwrap();
+
+        let mut buf = Vec::new();
+        acc.print_accounts(&mut buf).unwrap();
+        let out = String::from_utf8(buf).unwrap();
+
+        assert_eq!(
+            out,
+            "client,available,held,total,locked\n\
+            1,10.0000,0,10.0000,false\n\
+            2,5.5000,0,5.5000,false\n"
+        );
     }
 }

@@ -24,8 +24,5 @@ fn main() {
         process::exit(1);
     }
 
-    let result = driver::TxProcessor::run(&file_path);
-
-    // todo
-    println!("result={:?}", result)
+    let _result = driver::TxProcessor::run(&file_path);
 }

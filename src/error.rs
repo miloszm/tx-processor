@@ -1,13 +1,11 @@
 use crate::types::UnknownTypeOp;
-use std::path::PathBuf;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum TxProError {
-    #[error("failed to open `{path}`")]
+    #[error("IO error")]
     Io {
-        path: PathBuf,
-        #[source]
+        #[from]
         source: std::io::Error,
     },
     /// CSV reader/parser problem.

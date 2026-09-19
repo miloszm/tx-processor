@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::accounts::Accounts;
 use crate::error::TxProError;
@@ -11,10 +11,7 @@ pub struct TxProcessor;
 
 impl TxProcessor {
     pub fn run(file_path: impl AsRef<Path>) -> Result<(), TxProError> {
-        let file = File::open(&file_path).map_err(|source| TxProError::Io {
-            path: PathBuf::from(file_path.as_ref()),
-            source,
-        })?;
+        let file = File::open(&file_path)?;
 
         let mut reader = ReaderBuilder::new()
             .has_headers(true)
@@ -32,15 +29,12 @@ impl TxProcessor {
         while reader.read_record(&mut record)? {
             line_no += 1;
             let input_record = InputRecordParser::parse_record(&record, &cols, line_no)?;
-            println!(
-                "===== {} ====={}===amount={}",
-                input_record.type_op, input_record.client, input_record.amount
-            );
-            let op_outcome = InputRecordProcessor::process(input_record, &mut accounts)?;
-            println!("op outcome={:?}", op_outcome);
+            let _op_outcome = InputRecordProcessor::process(input_record, &mut accounts)?;
         }
 
-        accounts.print_accounts();
+        let stdout = std::io::stdout();
+        let mut handle = stdout.lock();
+        accounts.print_accounts(&mut handle)?;
 
         Ok(())
     }
