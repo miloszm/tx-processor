@@ -1,5 +1,5 @@
 use crate::error::TxProError;
-use crate::types::{ClientData, TransactionRecord, TypeOp};
+use crate::types::{ClientData, TransactionRecord, TypeOp, CLIENTS_HEADER};
 use TxProError::BadOp;
 use rust_decimal::Decimal;
 use std::collections::BTreeMap;
@@ -199,5 +199,16 @@ impl Accounts {
         }
 
         Ok(())
+    }
+
+    // todo
+    pub fn print_accounts(&self) {
+        for s in CLIENTS_HEADER {
+            print!("{s} ");
+        }
+        println!();
+        for (client, data) in self.data.range(..){
+             println!("{},{},{},{},{}", client, data.available, data.held, data.total, data.locked);
+        }
     }
 }

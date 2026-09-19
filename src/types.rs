@@ -37,14 +37,7 @@ pub struct InputRecord {
     pub amount: Decimal,
 }
 
-#[derive(Debug)]
-pub struct ClientRecord {
-    pub client: u16,
-    pub available: Decimal,
-    pub held: Decimal,
-    pub total: Decimal,
-    pub locked: bool,
-}
+pub const CLIENTS_HEADER: &[&str] = &["client", "available", "held", "total", "locked"];
 
 #[derive(Debug, Clone)]
 pub struct ClientData {

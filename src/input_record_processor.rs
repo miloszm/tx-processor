@@ -18,7 +18,18 @@ impl InputRecordProcessor {
             TypeOp::Deposit => {
                 accounts.deposit(r.client, r.amount, r.tx)?;
             }
-            _ => {}
+            TypeOp::Withdrawal => {
+                accounts.withdrawal(r.client, r.amount, r.tx)?;
+            }
+            TypeOp::Dispute => {
+                accounts.dispute(r.client, r.tx)?;
+            }
+            TypeOp::Resolve => {
+                accounts.resolve(r.client, r.tx)?;
+            }
+            TypeOp::Chargeback => {
+                accounts.chargeback(r.client, r.tx)?;
+            }
         }
 
         Ok(())

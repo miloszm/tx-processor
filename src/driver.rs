@@ -37,6 +37,8 @@ impl TxProcessor {
             InputRecordProcessor::process(input_record, &mut accounts)?;
         }
 
+        accounts.print_accounts();
+
         Ok(())
     }
 }
