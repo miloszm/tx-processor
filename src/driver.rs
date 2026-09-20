@@ -45,8 +45,8 @@ impl TxProcessor {
 
         while reader.read_record(&mut record)? {
             let line_no = reader.position().line();
-            let input_record = InputRecordParser::parse_record(&record, &cols, line_no)?;
-            match dispatch(&input_record, &mut accounts)? {
+            let (input_record, op) = InputRecordParser::parse_record(&record, &cols, line_no)?;
+            match dispatch(&input_record, op, &mut accounts)? {
                 OpOutcome::Applied => {}
                 OpOutcome::Rejected(reason) => {
                     writeln!(err, "tx {}: rejected: {:?}", input_record.tx, reason)?;

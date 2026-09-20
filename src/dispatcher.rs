@@ -1,17 +1,13 @@
 use crate::accounts::Accounts;
 use crate::error::TxProError;
-use crate::types::{InputRecord, OpOutcome, TypeOp, UnknownTypeOp};
+use crate::types::{InputRecord, OpOutcome, TypeOp};
 
-pub fn dispatch(r: &InputRecord, accounts: &mut Accounts) -> Result<OpOutcome, TxProError> {
-    let type_op: TypeOp =
-        r.type_op
-            .parse()
-            .map_err(|source: UnknownTypeOp| TxProError::BadTypeOp {
-                value: r.type_op.clone(),
-                source,
-            })?;
-
-    match type_op {
+pub fn dispatch(
+    r: &InputRecord,
+    op: TypeOp,
+    accounts: &mut Accounts,
+) -> Result<OpOutcome, TxProError> {
+    match op {
         TypeOp::Deposit => accounts.deposit(r.client, r.amount, r.tx),
         TypeOp::Withdrawal => accounts.withdrawal(r.client, r.amount, r.tx),
         TypeOp::Dispute => accounts.dispute(r.client, r.tx),
@@ -40,14 +36,12 @@ mod tests {
         Accounts::new()
     }
 
-    // --- routing: each op reaches the right Accounts method -----------------
-
     #[test]
     fn routes_deposit() {
         let mut acc = accounts();
         let r = record("deposit", 1, 100, dec!(10.00));
 
-        let outcome = dispatch(&r, &mut acc).unwrap();
+        let outcome = dispatch(&r, TypeOp::Deposit, &mut acc).unwrap();
 
         assert_eq!(outcome, OpOutcome::Applied);
         assert_eq!(acc.txs.get(&100).unwrap().type_op, TxRecordTypeOp::Deposit);
@@ -59,7 +53,7 @@ mod tests {
         acc.deposit(1, dec!(10.00), 100).unwrap();
         let r = record("withdrawal", 1, 101, dec!(3.00));
 
-        let outcome = dispatch(&r, &mut acc).unwrap();
+        let outcome = dispatch(&r, TypeOp::Withdrawal, &mut acc).unwrap();
 
         assert_eq!(outcome, OpOutcome::Applied);
         assert_eq!(
@@ -74,7 +68,7 @@ mod tests {
         acc.deposit(1, dec!(10.00), 100).unwrap();
         let r = record("dispute", 1, 100, dec!(0));
 
-        let outcome = dispatch(&r, &mut acc).unwrap();
+        let outcome = dispatch(&r, TypeOp::Dispute, &mut acc).unwrap();
 
         assert_eq!(outcome, OpOutcome::Applied);
         // After a dispute, available is 0 and held is 10.
@@ -88,7 +82,7 @@ mod tests {
         acc.dispute(1, 100).unwrap();
         let r = record("resolve", 1, 100, dec!(0));
 
-        let outcome = dispatch(&r, &mut acc).unwrap();
+        let outcome = dispatch(&r, TypeOp::Resolve, &mut acc).unwrap();
 
         assert_eq!(outcome, OpOutcome::Applied);
     }
@@ -100,26 +94,9 @@ mod tests {
         acc.dispute(1, 100).unwrap();
         let r = record("chargeback", 1, 100, dec!(0));
 
-        let outcome = dispatch(&r, &mut acc).unwrap();
+        let outcome = dispatch(&r, TypeOp::Chargeback, &mut acc).unwrap();
 
         assert_eq!(outcome, OpOutcome::Applied);
-    }
-
-    #[test]
-    fn rejects_unknown_type_op() {
-        let mut acc = accounts();
-        let r = record("bogus", 1, 100, dec!(1.00));
-
-        let err = dispatch(&r, &mut acc).unwrap_err();
-
-        match err {
-            TxProError::BadTypeOp { value, source } => {
-                assert_eq!(value, "bogus");
-                assert_eq!(source.0, "bogus");
-            }
-            other => panic!("expected BadTypeOp, got {other:?}"),
-        }
-        assert!(acc.txs.is_empty());
     }
 
     #[test]
@@ -127,7 +104,7 @@ mod tests {
         let mut acc = accounts();
         let r = record("withdrawal", 1, 100, dec!(1.00));
 
-        let outcome = dispatch(&r, &mut acc).unwrap();
+        let outcome = dispatch(&r, TypeOp::Withdrawal, &mut acc).unwrap();
 
         assert_eq!(
             outcome,

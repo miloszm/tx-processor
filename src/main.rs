@@ -9,7 +9,7 @@ use std::env;
 use std::process;
 
 fn main() {
-    let mut args = env::args().skip(1); // skip program name
+    let mut args = env::args().skip(1);
 
     let file_path = match args.next() {
         Some(path) => path,

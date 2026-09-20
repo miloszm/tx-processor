@@ -2,7 +2,7 @@ use csv::StringRecord;
 use rust_decimal::Decimal;
 
 use crate::error;
-use crate::types::InputRecord;
+use crate::types::{InputRecord, TypeOp, UnknownTypeOp};
 use error::TxProError;
 
 /// Column indices resolved from the header row.
@@ -39,7 +39,7 @@ impl InputRecordParser {
         record: &StringRecord,
         cols: &Columns,
         line: u64,
-    ) -> Result<InputRecord, TxProError> {
+    ) -> Result<(InputRecord, TypeOp), TxProError> {
         let get = |idx: usize, name: &'static str| -> Result<&str, TxProError> {
             record.get(idx).ok_or_else(|| TxProError::BadField {
                 line,
@@ -49,7 +49,16 @@ impl InputRecordParser {
             })
         };
 
-        let type_op = get(cols.type_op, "type")?.to_string();
+        let type_op_str = get(cols.type_op, "type")?.to_string();
+        let type_op: TypeOp =
+            type_op_str
+                .parse()
+                .map_err(|source: UnknownTypeOp| TxProError::BadField {
+                    line,
+                    column: "type",
+                    value: source.0,
+                    expected: "TypeOp",
+                })?;
 
         let client_raw = get(cols.client, "client")?;
         let client: u16 = client_raw.parse().map_err(|_| TxProError::BadField {
@@ -81,11 +90,14 @@ impl InputRecordParser {
 
         let amount = amount.trunc_with_scale(4);
 
-        Ok(InputRecord {
+        Ok((
+            InputRecord {
+                type_op: type_op_str,
+                client,
+                tx,
+                amount,
+            },
             type_op,
-            client,
-            tx,
-            amount,
-        })
+        ))
     }
 }

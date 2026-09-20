@@ -1,4 +1,3 @@
-use crate::types::UnknownTypeOp;
 use std::path::PathBuf;
 use thiserror::Error;
 
@@ -32,13 +31,5 @@ pub enum TxProError {
         column: &'static str,
         value: String,
         expected: &'static str,
-    },
-
-    /// The `type` column had a value that isn't a known operation.
-    #[error("column `type` = `{value}` is not a valid operation")]
-    BadTypeOp {
-        value: String,
-        #[source]
-        source: UnknownTypeOp,
     },
 }
