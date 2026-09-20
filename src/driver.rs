@@ -33,7 +33,7 @@ impl TxProcessor {
     ) -> Result<(), TxProError> {
         let mut reader = ReaderBuilder::new()
             .has_headers(true)
-            .trim(csv::Trim::All) // trims whitespace around fields
+            .trim(csv::Trim::All)
             .from_reader(input);
 
         let headers = reader.headers()?.clone();
