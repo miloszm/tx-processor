@@ -1,9 +1,16 @@
 use crate::types::UnknownTypeOp;
+use std::path::PathBuf;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum TxProError {
-    #[error("IO error")]
+    #[error("failed to open `{path}`")]
+    Open {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+    #[error("I/O error")]
     Io {
         #[from]
         source: std::io::Error,

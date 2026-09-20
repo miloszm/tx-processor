@@ -14,7 +14,10 @@ pub struct TxProcessor;
 
 impl TxProcessor {
     pub fn run(file_path: impl AsRef<Path>) -> Result<(), TxProError> {
-        let file = File::open(&file_path)?;
+        let file = File::open(&file_path).map_err(|source| TxProError::Open {
+            path: file_path.as_ref().to_path_buf(),
+            source,
+        })?;
 
         let stdout = std::io::stdout();
         let mut handle = stdout.lock();
